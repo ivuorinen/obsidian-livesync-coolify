@@ -1,0 +1,69 @@
+---
+services:
+  couchdb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: couchdb
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=${SERVICE_PASSWORD_64_COUCHDB_ADMIN}
+      - SERVICE_FQDN_COUCHDB_5984
+    volumes:
+      - couchdb-data:/opt/couchdb/data
+    expose:
+      - "5984"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsS --user "$$COUCHDB_USER:$$COUCHDB_PASSWORD"
+          http://127.0.0.1:5984/_session | grep -q '"ok":true'
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  couchdb-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: init
+    environment:
+      - COUCHDB_INTERNAL_URL=http://couchdb:5984
+      - COUCHDB_ADMIN_USER=admin
+      - COUCHDB_ADMIN_PASSWORD=${SERVICE_PASSWORD_64_COUCHDB_ADMIN}
+      #
+      # One vault database per person: alice gets vault-alice, and only alice
+      # can reach it. Rename "livesync" to whatever you like.
+      #
+      # To add someone, edit these two places together and redeploy:
+      #   1. append their name to LIVESYNC_USERS
+      #   2. add one LIVESYNC_PASSWORD_<NAME> line referencing a
+      #      SERVICE_PASSWORD_64_<NAME> variable, which Coolify generates
+      #
+      # For example, adding alice and bob:
+      #   - LIVESYNC_USERS=livesync,alice,bob
+      #   - LIVESYNC_PASSWORD_ALICE=${SERVICE_PASSWORD_64_ALICE}
+      #   - LIVESYNC_PASSWORD_BOB=${SERVICE_PASSWORD_64_BOB}
+      #
+      # The roster is written here rather than exposed as a Coolify variable
+      # on purpose: a name and its password variable have to be added
+      # together, so keeping both in this file makes a half-added person a
+      # startup error instead of a puzzle.
+      - LIVESYNC_USERS=livesync
+      - LIVESYNC_PASSWORD_LIVESYNC=${SERVICE_PASSWORD_64_LIVESYNC}
+      - CORS_ORIGINS=${CORS_ORIGINS:-app://obsidian.md,capacitor://localhost,http://localhost}
+    depends_on:
+      couchdb:
+        condition: service_healthy
+    # Bounded: every failure mode of this service is permanent (an invalid
+    # database name, a missing generated password, an unreachable CouchDB),
+    # so unlimited retries only hide a terminal error behind a container that
+    # looks perpetually "starting" instead of failed.
+    restart: on-failure:3
+    exclude_from_hc: true
+
+volumes:
+  couchdb-data:
