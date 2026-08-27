@@ -3,7 +3,7 @@
 FROM couchdb:3.5.2.1 AS couchdb
 COPY config/livesync.ini /opt/couchdb/etc/local.ini
 
-FROM denoland/deno:2.9.5 AS init
+FROM denoland/deno:2.9.6 AS init
 WORKDIR /app
 COPY --chown=deno:deno scripts/couchdb-init.ts /app/couchdb-init.ts
 # "deno" is the upstream image's own user; pinning the numeric uid would break
