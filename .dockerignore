@@ -1,0 +1,20 @@
+.git
+.github
+.gitignore
+.editorconfig
+.gitleaks.toml
+README.md
+SECURITY.md
+LICENSE
+docs
+*.zip
+
+# Kept out of the build context, not just out of the image: these hold the
+# Coolify-generated CouchDB and LiveSync passwords, and the context is
+# uploaded to the Docker daemon (over the network, for a remote builder) on
+# every build. .gitignore already excludes them from git.
+.env
+.env.*
+
+# Test-only; the init image runs the script, it does not test it.
+scripts/couchdb-init.test.ts
