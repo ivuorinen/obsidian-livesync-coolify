@@ -1,0 +1,20 @@
+{
+  "$schema": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
+  "fmt": {
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": false
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "tasks": {
+    "check": "deno check scripts/couchdb-init.ts scripts/couchdb-init.test.ts",
+    "test": "deno test scripts/couchdb-init.test.ts",
+    "lint": "deno lint scripts/",
+    "fmt": "deno fmt --check scripts/"
+  }
+}
