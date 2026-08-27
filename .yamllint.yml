@@ -1,0 +1,12 @@
+---
+extends: default
+
+rules:
+  # 80 columns forces the CI shim scripts and healthcheck commands onto
+  # continuation lines that read worse than the long form.
+  line-length:
+    max: 120
+  comments:
+    # Actions pins are conventionally written as `uses: ...@<sha>  # vX.Y.Z`;
+    # requiring two spaces there is the only reason this rule fires.
+    min-spaces-from-content: 1

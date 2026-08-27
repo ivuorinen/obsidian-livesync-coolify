@@ -1,0 +1,18 @@
+# Extends gitleaks' default ruleset; this file only adds allowlist entries.
+[extend]
+useDefault = true
+
+[allowlist]
+description = """
+Compose variable escaping, not a credential. In docker-compose.yml the
+healthcheck writes `$$COUCHDB_USER:$$COUCHDB_PASSWORD` so that Compose emits a
+literal `$` and the container expands the variables at runtime. The real
+values are generated and injected by Coolify at deploy time and never appear
+in this repository.
+
+Matched by pattern rather than by file:line fingerprint, which silently stops
+suppressing the moment an unrelated edit shifts the line number.
+"""
+regexes = [
+  '''\$\$COUCHDB_USER:\$\$COUCHDB_PASSWORD''',
+]
