@@ -4,6 +4,7 @@
 .editorconfig
 .gitleaks.toml
 .trivyignore.yaml
+renovate.json
 README.md
 SECURITY.md
 LICENSE
