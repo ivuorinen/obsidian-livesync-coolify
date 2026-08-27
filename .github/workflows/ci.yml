@@ -57,10 +57,22 @@ jobs:
           docker run --rm -v "$PWD:/repo" -w /repo \
             zricethezav/gitleaks:v8.30.1 dir /repo --no-banner --redact
 
+      # Both images are always scanned, and the step fails at the end rather
+      # than on the first bad image: aborting early meant only ever learning
+      # about whichever image happened to be scanned first.
+      # Suppressions live in .trivyignore.yaml, each justified and dated.
       - name: Scan built images for known vulnerabilities
         run: |
+          failed=0
           for image in obsidian-livesync-couchdb:validate obsidian-livesync-init:validate; do
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            echo "::group::trivy $image"
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$PWD:/repo" -w /repo \
               aquasec/trivy:0.74.0 image \
-              --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$image"
+              --severity HIGH,CRITICAL --ignore-unfixed \
+              --ignorefile /repo/.trivyignore.yaml \
+              --exit-code 1 "$image" || failed=1
+            echo "::endgroup::"
           done
+          exit "$failed"

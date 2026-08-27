@@ -3,6 +3,7 @@
 .gitignore
 .editorconfig
 .gitleaks.toml
+.trivyignore.yaml
 README.md
 SECURITY.md
 LICENSE

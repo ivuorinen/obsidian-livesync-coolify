@@ -1,0 +1,61 @@
+# Vulnerabilities present in the pinned base images but not reachable in this
+# deployment. Every entry states why, and expires so it comes back for review
+# rather than becoming permanent. Nothing here is a judgement that the CVE is
+# unimportant — only that this stack cannot execute the affected code.
+#
+# Re-check by removing an entry and running: ./scripts/validate.sh
+# then the trivy step in .github/workflows/ci.yml.
+
+vulnerabilities:
+  # --- Apache CouchDB image: Nouveau's bundled Java libraries -------------
+  #
+  # Nouveau is CouchDB's optional Lucene-based full-text search service. Its
+  # jars ship in the image, but nothing can load them: the image contains no
+  # JVM at all (`command -v java` finds nothing) and `[nouveau] enable` is
+  # empty in default.ini, which this stack never overrides.
+  #
+  # These become live the moment Nouveau is enabled, which would also require
+  # adding a JVM — so if you ever do that, delete this whole block first.
+
+  - id: GHSA-r7wm-3cxj-wff9
+    statement: >-
+      jackson-core, in Nouveau's jars. No JVM in the image and Nouveau is
+      disabled, so the code cannot be loaded.
+    expiredAt: 2026-11-25
+
+  - id: CVE-2026-54512
+    statement: >-
+      jackson-databind, in Nouveau's jars. No JVM in the image and Nouveau is
+      disabled, so the code cannot be loaded.
+    expiredAt: 2026-11-25
+
+  - id: CVE-2026-54513
+    statement: >-
+      jackson-databind, in Nouveau's jars. No JVM in the image and Nouveau is
+      disabled, so the code cannot be loaded.
+    expiredAt: 2026-11-25
+
+  - id: CVE-2026-2332
+    statement: >-
+      jetty-http, in Nouveau's jars. No JVM in the image and Nouveau is
+      disabled, so the code cannot be loaded.
+    expiredAt: 2026-11-25
+
+  - id: CVE-2026-10050
+    statement: >-
+      jetty-security, in Nouveau's jars. No JVM in the image and Nouveau is
+      disabled, so the code cannot be loaded.
+    expiredAt: 2026-11-25
+
+  # --- Apache CouchDB image: Debian openssl -------------------------------
+
+  - id: CVE-2026-14456
+    statement: >-
+      OpenSSL denial of service through unbounded memory growth in a QUIC
+      server. CouchDB runs no QUIC server, and in this stack it does not
+      terminate TLS at all — Coolify's reverse proxy does, and CouchDB is
+      published through `expose` rather than a host port. Debian has the fix;
+      it reaches us when upstream rebuilds the couchdb image, and 3.5.2.1 is
+      currently the newest 3.x tag. Drop this entry when a rebuilt image
+      lands.
+    expiredAt: 2026-11-25
