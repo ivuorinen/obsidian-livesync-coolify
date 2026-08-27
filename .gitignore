@@ -1,0 +1,6 @@
+.env
+.env.*
+.DS_Store
+*.log
+*.zip
+.docker-compose.validate*.yml
