@@ -4,11 +4,11 @@ Production-oriented CouchDB deployment for [Obsidian Self-hosted LiveSync](https
 
 The stack keeps CouchDB behind Coolify's HTTPS reverse proxy, provisions the required CouchDB settings automatically, and gives each person their own vault database reachable only by their own account — never the CouchDB server administrator credentials.
 
-Adding someone is two lines in `docker-compose.yml` and a redeploy.
+Adding someone is a name in Coolify's `LIVESYNC_USERS`, one line in `docker-compose.yml`, and a redeploy.
 
 ## Features
 
-- One vault database per person, created automatically from a roster — adding someone is two lines and a redeploy.
+- One vault database per person, created automatically from a Coolify-managed roster — adding someone is a name, a password line, and a redeploy.
 - Each person gets a CouchDB account with database-admin rights on their own vault and nothing else. CI asserts the refusals, not just the access.
 - One-shot, idempotent provisioning: re-running against an already-configured server is expected and safe, and CI proves it by running it twice.
 - CouchDB stays behind Coolify's HTTPS proxy via `SERVICE_FQDN_COUCHDB_5984`, with no host port mapping and a health check.
@@ -21,7 +21,7 @@ Adding someone is two lines in `docker-compose.yml` and a redeploy.
 
 ```text
 .
-├── docker-compose.yml           services, and the roster of people
+├── docker-compose.yml           services, and each person's password line
 ├── Dockerfile                   both image targets and the pinned base images
 ├── config/livesync.ini          static CouchDB config, applied before provisioning
 ├── scripts/
@@ -77,34 +77,38 @@ Assign the HTTPS domain for the `couchdb` service in Coolify. Do not add a separ
 
 ### 2. Review environment variables
 
-People are declared in `docker-compose.yml`, on the `couchdb-init` service. The stack ships with one:
+The roster is a Coolify variable, editable in the environment-variable view. Each person's password line stays in `docker-compose.yml`, on the `couchdb-init` service. The stack ships with one person:
+
+| Variable             | Default    | Purpose                           |
+|----------------------|------------|-----------------------------------|
+| `LIVESYNC_USERS`     | `livesync` | Comma-separated roster            |
+| `COUCHDB_ADMIN_USER` | `admin`    | CouchDB server administrator name |
 
 ```yaml
-      - LIVESYNC_USERS=livesync
       - LIVESYNC_PASSWORD_LIVESYNC=${SERVICE_PASSWORD_64_LIVESYNC}
 ```
 
 `LIVESYNC_USERS` is the roster. Each name gets its own vault database and its own password variable, both derived from the name:
 
-| Name | Database | Password variable |
-| --- | --- | --- |
-| `livesync` | `vault-livesync` | `LIVESYNC_PASSWORD_LIVESYNC` |
-| `alice` | `vault-alice` | `LIVESYNC_PASSWORD_ALICE` |
+| Name          | Database            | Password variable               |
+|---------------|---------------------|---------------------------------|
+| `livesync`    | `vault-livesync`    | `LIVESYNC_PASSWORD_LIVESYNC`    |
+| `alice`       | `vault-alice`       | `LIVESYNC_PASSWORD_ALICE`       |
 | `alice.smith` | `vault-alice-smith` | `LIVESYNC_PASSWORD_ALICE_SMITH` |
 
 Names may contain letters, digits, dots, underscores, and hyphens. Two names that differ only by case, dots, or underscores are rejected at startup rather than silently sharing one vault.
 
 Coolify generates any `SERVICE_PASSWORD_64_*` variable the Compose file references, so a new person's password is created for you:
 
-| Variable | Purpose |
-| --- | --- |
+| Variable                            | Purpose                               |
+|-------------------------------------|---------------------------------------|
 | `SERVICE_PASSWORD_64_COUCHDB_ADMIN` | CouchDB server administrator password |
-| `SERVICE_PASSWORD_64_LIVESYNC` | Password for the `livesync` person |
+| `SERVICE_PASSWORD_64_LIVESYNC`      | Password for the `livesync` person    |
 
 One optional variable applies server-wide:
 
-| Variable | Purpose |
-| --- | --- |
+| Variable       | Purpose                                                                                                                                         |
+|----------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
 | `CORS_ORIGINS` | Allowed LiveSync application origins. Defaults to the Obsidian desktop and mobile origins — see `DEFAULT_ORIGINS` in `scripts/couchdb-init.ts`. |
 
 ### 3. Deploy
@@ -125,23 +129,28 @@ The `couchdb-init` service should then be in an exited/success state. The `couch
 
 ### Adding a person
 
-Edit two places in `docker-compose.yml` and redeploy:
+Edit two places and redeploy. First, the roster, in Coolify's environment-variable view:
+
+```text
+LIVESYNC_USERS=livesync,alice
+```
+
+Second, their password line in `docker-compose.yml`:
 
 ```yaml
-      - LIVESYNC_USERS=livesync,alice          # 1. add the name
       - LIVESYNC_PASSWORD_LIVESYNC=${SERVICE_PASSWORD_64_LIVESYNC}
-      - LIVESYNC_PASSWORD_ALICE=${SERVICE_PASSWORD_64_ALICE}   # 2. add the password
+      - LIVESYNC_PASSWORD_ALICE=${SERVICE_PASSWORD_64_ALICE}
 ```
 
 Coolify generates `SERVICE_PASSWORD_64_ALICE` on the next deploy. Provisioning creates `vault-alice`, grants alice database-admin on it alone, and leaves every existing vault untouched — re-running against an already-provisioned server is expected and safe.
 
 Read alice's generated password from Coolify's environment-variable view to configure her Obsidian client.
 
-The roster lives in the Compose file rather than in Coolify's variable UI on purpose: a name and its password variable must be added together, so keeping both in one file turns a half-added person into a startup error instead of a puzzle. If you forget the password line, the deployment fails with `LIVESYNC_PASSWORD_ALICE is required for LIVESYNC_USERS entry 'alice'` — and reports every other roster problem in the same message, so several people can be added in one pass.
+A name and its password line must be added together. If you forget the password line, the deployment fails with `LIVESYNC_PASSWORD_ALICE is required for LIVESYNC_USERS entry 'alice'` — and reports every other roster problem in the same message, so several people can be added in one pass.
 
 ### Removing a person
 
-Delete their name and password line from `docker-compose.yml` and redeploy. Their account and vault database are **not** deleted — provisioning never destroys data, because a typo in the roster would otherwise be unrecoverable.
+Delete their name from `LIVESYNC_USERS` in Coolify, delete their password line from `docker-compose.yml`, and redeploy. Their account and vault database are **not** deleted — provisioning never destroys data, because a typo in the roster would otherwise be unrecoverable.
 
 To actually remove them, delete the CouchDB user document and their `vault-<name>` database by hand, after taking a backup.
 
@@ -155,12 +164,12 @@ Install and enable the **Self-hosted LiveSync** community plugin in Obsidian.
 
 Each person uses their own connection values:
 
-| LiveSync setting | Value |
-| --- | --- |
-| URI | The HTTPS URL assigned to the CouchDB service by Coolify (the same for everyone) |
-| Username | Their name from `LIVESYNC_USERS`, for example `alice` |
-| Password | Coolify value of their `SERVICE_PASSWORD_64_<NAME>` |
-| Database | `vault-<name>`, for example `vault-alice` |
+| LiveSync setting | Value                                                                            |
+|------------------|----------------------------------------------------------------------------------|
+| URI              | The HTTPS URL assigned to the CouchDB service by Coolify (the same for everyone) |
+| Username         | Their name from `LIVESYNC_USERS`, for example `alice`                            |
+| Password         | Coolify value of their `SERVICE_PASSWORD_64_<NAME>`                              |
+| Database         | `vault-<name>`, for example `vault-alice`                                        |
 
 The `couchdb-init` logs print the name-to-database mapping for every person, so read it there rather than deriving it by hand.
 

@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
       target: couchdb
     environment:
-      - COUCHDB_USER=admin
+      - COUCHDB_USER=${COUCHDB_ADMIN_USER:-admin}
       - COUCHDB_PASSWORD=${SERVICE_PASSWORD_64_COUCHDB_ADMIN}
       - SERVICE_FQDN_COUCHDB_5984
     volumes:
@@ -32,27 +32,25 @@ services:
       target: init
     environment:
       - COUCHDB_INTERNAL_URL=http://couchdb:5984
-      - COUCHDB_ADMIN_USER=admin
+      - COUCHDB_ADMIN_USER=${COUCHDB_ADMIN_USER:-admin}
       - COUCHDB_ADMIN_PASSWORD=${SERVICE_PASSWORD_64_COUCHDB_ADMIN}
       #
       # One vault database per person: alice gets vault-alice, and only alice
-      # can reach it. Rename "livesync" to whatever you like.
+      # can reach it. The roster is a Coolify variable, so edit it there.
       #
-      # To add someone, edit these two places together and redeploy:
-      #   1. append their name to LIVESYNC_USERS
-      #   2. add one LIVESYNC_PASSWORD_<NAME> line referencing a
+      # To add someone, do both and redeploy:
+      #   1. append their name to LIVESYNC_USERS in Coolify
+      #   2. add one LIVESYNC_PASSWORD_<NAME> line below referencing a
       #      SERVICE_PASSWORD_64_<NAME> variable, which Coolify generates
       #
       # For example, adding alice and bob:
-      #   - LIVESYNC_USERS=livesync,alice,bob
+      #   LIVESYNC_USERS=livesync,alice,bob   (Coolify variable)
       #   - LIVESYNC_PASSWORD_ALICE=${SERVICE_PASSWORD_64_ALICE}
       #   - LIVESYNC_PASSWORD_BOB=${SERVICE_PASSWORD_64_BOB}
       #
-      # The roster is written here rather than exposed as a Coolify variable
-      # on purpose: a name and its password variable have to be added
-      # together, so keeping both in this file makes a half-added person a
-      # startup error instead of a puzzle.
-      - LIVESYNC_USERS=livesync
+      # A name added without its password line is a startup error naming the
+      # missing variable, not a silently half-provisioned person.
+      - LIVESYNC_USERS=${LIVESYNC_USERS:-livesync}
       - LIVESYNC_PASSWORD_LIVESYNC=${SERVICE_PASSWORD_64_LIVESYNC}
       - CORS_ORIGINS=${CORS_ORIGINS:-app://obsidian.md,capacitor://localhost,http://localhost}
     depends_on:
