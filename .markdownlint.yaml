@@ -1,0 +1,8 @@
+---
+# MD013 line-length: the prose here wraps by sentence rather than by column, so
+# a column limit would only add line breaks that make diffs noisier.
+MD013: false
+
+# MD029 ol-prefix: README's provisioning list continues one numbered sequence
+# across a paragraph break, which is the intended reading and not a mistake.
+MD029: false
