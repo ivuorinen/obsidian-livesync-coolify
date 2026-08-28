@@ -27,7 +27,9 @@ Adding someone is a name in Coolify's `LIVESYNC_USERS`, one line in `docker-comp
 ├── scripts/
 │   ├── couchdb-init.ts          the provisioning service
 │   ├── couchdb-init.test.ts     its unit tests
+│   ├── deno.sh                  runs deno, or the pinned image if deno is absent
 │   └── validate.sh              everything CI runs, runnable locally
+├── .pre-commit-config.yaml      the commit and push hooks
 └── .github/workflows/ci.yml     the pipeline, which mostly calls validate.sh
 ```
 
@@ -278,6 +280,28 @@ It performs the following checks:
 - runs `git diff --check` when executed inside a Git work tree.
 
 GitHub Actions runs the same validation for pushes to `main`, pull requests, and manual workflow runs, and adds two CI-only steps: a `gitleaks` secret scan and a `trivy` scan of both built images for HIGH and CRITICAL CVEs.
+
+### Hooks
+
+`.pre-commit-config.yaml` wires the same checks into Git, so they run before a mistake reaches CI. Install them once per clone with [prek](https://github.com/j178/prek) (or `pre-commit`, which reads the same file):
+
+```bash
+prek install
+```
+
+The hooks are split by how long they take, because a gate that is slow enough to be skipped is not a gate:
+
+- **on commit**, a second or two: file hygiene, `shellcheck`, `shfmt`, `hadolint`, `actionlint`, `zizmor`, `yamllint`, `markdownlint`, a staged-changes `gitleaks` scan, `trivy config`, JSON Schema validation of the workflow and Renovate files, and `deno fmt`/`lint`/`check`;
+- **on push**, minutes: `opengrep`, the Deno unit tests, and `./scripts/validate.sh` in full — Docker builds and the CouchDB integration run included.
+
+Every hook that upstream publishes comes from that project's own repository, so `renovate` bumps the versions here alongside everything else. Four have no upstream hook and run from `PATH` or through `scripts/deno.sh`: Deno, `trivy`, `opengrep`, and `validate.sh` itself.
+
+Run everything without committing:
+
+```bash
+prek run --all-files                     # the commit-stage hooks
+prek run --all-files --hook-stage pre-push   # those plus the slow ones
+```
 
 ## Troubleshooting
 

@@ -1,0 +1,169 @@
+---
+# Read by both prek and pre-commit. Install with `prek install`.
+#
+# Two stages, split by cost. pre-commit holds everything that answers in a
+# second or two, so it can run on every commit without training anyone to pass
+# --no-verify. pre-push holds the checks that need the network or a Docker
+# build — including scripts/validate.sh itself, which is the same gate CI runs.
+#
+# Hooks come from each tool's own repository wherever one exists, so the
+# versions here are the upstream releases and Renovate can bump them. The
+# `local` block covers the four tools that publish no hook of their own.
+
+default_install_hook_types:
+  - pre-commit
+  - pre-push
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-symlinks
+      - id: check-vcs-permalinks
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: forbid-submodules
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+
+  # Shell: scripts/validate.sh and scripts/deno.sh are the deployment's only
+  # moving parts outside the container images.
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1-1
+    hooks:
+      - id: shellcheck
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.13.1-1
+    hooks:
+      # Indentation comes from .editorconfig, so there is no second style
+      # definition to keep in sync.
+      - id: shfmt
+
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.15.1
+    hooks:
+      - id: hadolint-docker
+
+  # actionlint catches broken workflow syntax and shell bugs inside `run:`
+  # blocks; zizmor catches the security-relevant patterns actionlint allows,
+  # such as unpinned actions and injectable expressions.
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint-docker
+
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.29.0
+    hooks:
+      # args replaces the upstream list rather than appending to it, so
+      # --no-progress has to be repeated here.
+      - id: zizmor
+        args: [--no-progress, --persona=pedantic]
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      # Configured by .yamllint.yml. Unlike validate.sh, which only knows about
+      # docker-compose.yml and .github/, this covers every YAML file in the
+      # repository — the config files added here included.
+      - id: yamllint
+
+  # Schema validation. The workflow and Renovate schemas are the ones that
+  # actually reject a typo before a push; docker-compose.yml is checked by
+  # `docker compose config` in validate.sh instead, because it carries
+  # Coolify's `exclude_from_hc` extension which the upstream Compose schema
+  # rejects outright.
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.38.0
+    hooks:
+      - id: check-github-workflows
+      - id: check-github-workflows-require-timeout
+      - id: check-renovate
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      # Staged changes only, so this stays fast enough for every commit; CI
+      # still scans the whole tree. Allowlist lives in .gitleaks.toml.
+      - id: gitleaks
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.49.1
+    hooks:
+      # Configured by .markdownlint.yaml.
+      - id: markdownlint
+
+  - repo: local
+    hooks:
+      # Deno publishes no pre-commit hook. scripts/deno.sh runs the pinned
+      # image when deno is not installed, so these work on a machine that has
+      # only Docker.
+      - id: deno-fmt
+        name: deno fmt
+        entry: scripts/deno.sh fmt --check scripts/ deno.json
+        language: script
+        files: ^(scripts/.*\.ts|deno\.json)$
+        pass_filenames: false
+
+      - id: deno-lint
+        name: deno lint
+        entry: scripts/deno.sh lint scripts/
+        language: script
+        files: ^scripts/.*\.ts$
+        pass_filenames: false
+
+      - id: deno-check
+        name: deno check
+        entry: scripts/deno.sh check scripts/couchdb-init.ts scripts/couchdb-init.test.ts
+        language: script
+        files: ^(scripts/.*\.ts|deno\.json|Dockerfile)$
+        pass_filenames: false
+
+      # Trivy publishes no pre-commit hook either. This is the misconfiguration
+      # scan; the image vulnerability scan needs images built first and stays
+      # in CI, where .trivyignore.yaml applies.
+      - id: trivy-config
+        name: trivy config
+        entry: trivy config --severity HIGH,CRITICAL --exit-code 1 .
+        language: system
+        files: ^(Dockerfile|docker-compose\.yml)$
+        pass_filenames: false
+
+      # Static analysis over the TypeScript, shell, YAML and Dockerfile.
+      # pre-push because `--config auto` fetches the rule registry.
+      - id: opengrep
+        name: opengrep
+        entry: opengrep scan --config auto --error --quiet .
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      - id: deno-test
+        name: deno test
+        entry: scripts/deno.sh test scripts/couchdb-init.test.ts
+        language: script
+        files: ^scripts/.*\.ts$
+        pass_filenames: false
+        stages: [pre-push]
+
+      # The full gate: empty-file check, every linter above, the Coolify magic
+      # variable name check, `docker compose config`, both image builds and the
+      # CouchDB provisioning and vault-isolation integration run. Minutes, not
+      # seconds — which is why it is the last thing before a push rather than
+      # part of a commit.
+      - id: validate
+        name: scripts/validate.sh
+        entry: scripts/validate.sh
+        language: script
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
