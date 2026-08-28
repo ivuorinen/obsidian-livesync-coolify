@@ -17,7 +17,11 @@ fi
 # Read the image out of the Dockerfile rather than pinning it again here. Two
 # pins drift: this one would keep type-checking against an old Deno long after
 # the image the code actually ships on had moved.
-deno_image="$(grep -oE 'denoland/deno:[0-9]+\.[0-9]+\.[0-9]+' Dockerfile | head -1)"
+#
+# || true is load-bearing under `set -o pipefail`: a grep that matches nothing
+# fails the pipeline, and an assignment's status is the substitution's, so the
+# script would exit here — one line above the message explaining why.
+deno_image="$(grep -oE 'denoland/deno:[0-9]+\.[0-9]+\.[0-9]+' Dockerfile | head -1 || true)"
 if [[ -z "$deno_image" ]]; then
   echo "could not find a pinned denoland/deno image in Dockerfile" >&2
   exit 1

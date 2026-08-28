@@ -113,11 +113,14 @@ repos:
         files: ^(scripts/.*\.ts|deno\.json)$
         pass_filenames: false
 
+      # deno.json triggers this as well as the .ts files: it carries the
+      # lint.rules block, so editing it alone changes what `deno lint`
+      # reports without touching a file this would otherwise match.
       - id: deno-lint
         name: deno lint
         entry: scripts/deno.sh lint scripts/
         language: script
-        files: ^scripts/.*\.ts$
+        files: ^(scripts/.*\.ts|deno\.json)$
         pass_filenames: false
 
       - id: deno-check
