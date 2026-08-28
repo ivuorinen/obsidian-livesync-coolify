@@ -19,8 +19,8 @@ fi
 # commit, which is when a fallback to a bare `find` would otherwise kick in
 # and reintroduce exactly the noise this replaced.
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  empty_files="$(git ls-files -z --cached --others --exclude-standard \
-    | xargs -0 -r -I{} find {} -maxdepth 0 -type f -size 0 -print)"
+  empty_files="$(git ls-files -z --cached --others --exclude-standard |
+    xargs -0 -r -I{} find {} -maxdepth 0 -type f -size 0 -print)"
 else
   empty_files="$(find . -type f -not -path './.git/*' -size 0 -print)"
 fi
@@ -44,37 +44,18 @@ run_linter() {
 }
 
 run_linter hadolint Dockerfile
-run_linter shellcheck scripts/validate.sh
+run_linter shellcheck scripts/validate.sh scripts/deno.sh
 run_linter actionlint
 run_linter yamllint docker-compose.yml .github/
 
-# Type-check, lint, format-check and unit-test the provisioning script. Falls
-# back to the pinned Deno image so the checks run identically whether or not
-# Deno is installed locally. --network none proves the script keeps its
-# zero-remote-dependency property; a new import makes this fail loudly.
-
-# Read the Deno image out of the Dockerfile rather than pinning it again here.
-# Two pins drift: this one would keep type-checking against an old Deno long
-# after the image the code actually ships on had moved.
-deno_image="$(grep -oE 'denoland/deno:[0-9]+\.[0-9]+\.[0-9]+' Dockerfile | head -1)"
-if [[ -z "$deno_image" ]]; then
-  echo "could not find a pinned denoland/deno image in Dockerfile" >&2
-  exit 1
-fi
-
-deno_exec() {
-  if command -v deno >/dev/null 2>&1; then
-    deno "$@"
-  else
-    docker run --rm -v "$repo_root:/w" -w /w --network none "$deno_image" deno "$@"
-  fi
-}
-
+# Type-check, lint, format-check and unit-test the provisioning script.
+# scripts/deno.sh owns the "deno, or the pinned image if deno is absent"
+# decision so that this script and the pre-commit hooks cannot disagree.
 echo "type-checking, linting and testing scripts/couchdb-init.ts"
-deno_exec check scripts/couchdb-init.ts scripts/couchdb-init.test.ts
-deno_exec lint scripts/
-deno_exec fmt --check scripts/ deno.json
-deno_exec test scripts/couchdb-init.test.ts
+scripts/deno.sh check scripts/couchdb-init.ts scripts/couchdb-init.test.ts
+scripts/deno.sh lint scripts/
+scripts/deno.sh fmt --check scripts/ deno.json
+scripts/deno.sh test scripts/couchdb-init.test.ts
 
 # Coolify's parseEnvVariable() only recognises a SERVICE_* magic variable when
 # the whole name has three underscores or fewer; past that it generates nothing
@@ -85,6 +66,9 @@ if bad=$(grep -oE 'SERVICE_[A-Z0-9_]+' docker-compose.yml | sort -u |
   awk -F_ 'NF > 4 { print $0 }'); then
   if [ -n "$bad" ]; then
     echo "Coolify will not generate these; their identifiers contain an underscore:" >&2
+    # shellcheck disable=SC2001
+    # A per-line prefix over a multi-line value; ${bad//.../...} cannot reach
+    # the first line's start, which is exactly the line a reader looks at.
     echo "$bad" | sed 's/^/  - /' >&2
     exit 1
   fi
