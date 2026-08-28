@@ -100,10 +100,12 @@ Names may contain letters, digits, dots, underscores, and hyphens. Two names tha
 
 Coolify generates any `SERVICE_PASSWORD_64_*` variable the Compose file references, so a new person's password is created for you:
 
-| Variable                            | Purpose                               |
-|-------------------------------------|---------------------------------------|
-| `SERVICE_PASSWORD_64_COUCHDB_ADMIN` | CouchDB server administrator password |
-| `SERVICE_PASSWORD_64_LIVESYNC`      | Password for the `livesync` person    |
+| Variable                           | Purpose                               |
+|------------------------------------|---------------------------------------|
+| `SERVICE_PASSWORD_64_COUCHDBADMIN` | CouchDB server administrator password |
+| `SERVICE_PASSWORD_64_LIVESYNC`     | Password for the `livesync` person    |
+
+**Prefer single-word names.** Coolify only generates a `SERVICE_PASSWORD_*` value when the whole variable name has three underscores or fewer, so `SERVICE_PASSWORD_64_ALICE` is generated but `SERVICE_PASSWORD_64_ALICE_SMITH` is silently left empty. A person whose name contains a dot or underscore needs their password set by hand in Coolify. This is why the administrator's variable is `COUCHDBADMIN` and not `COUCHDB_ADMIN`.
 
 One optional variable applies server-wide:
 

@@ -76,7 +76,21 @@ deno_exec lint scripts/
 deno_exec fmt --check scripts/ deno.json
 deno_exec test scripts/couchdb-init.test.ts
 
-export SERVICE_PASSWORD_64_COUCHDB_ADMIN="${SERVICE_PASSWORD_64_COUCHDB_ADMIN:-ci-admin-password-6b2e1e5343ef4eeca4ce2e345db338c2}"
+# Coolify's parseEnvVariable() only recognises a SERVICE_* magic variable when
+# the whole name has three underscores or fewer; past that it generates nothing
+# and the variable arrives empty, which CouchDB reports only by exiting at
+# startup. Catching it here costs one grep instead of a failed deployment.
+echo "checking Coolify magic variable names"
+if bad=$(grep -oE 'SERVICE_[A-Z0-9_]+' docker-compose.yml | sort -u |
+  awk -F_ 'NF > 4 { print $0 }'); then
+  if [ -n "$bad" ]; then
+    echo "Coolify will not generate these; their identifiers contain an underscore:" >&2
+    echo "$bad" | sed 's/^/  - /' >&2
+    exit 1
+  fi
+fi
+
+export SERVICE_PASSWORD_64_COUCHDBADMIN="${SERVICE_PASSWORD_64_COUCHDBADMIN:-ci-admin-password-6b2e1e5343ef4eeca4ce2e345db338c2}"
 export SERVICE_PASSWORD_64_LIVESYNC="${SERVICE_PASSWORD_64_LIVESYNC:-ci-livesync-password-f2d50c3c778346b6a30bb98dc8f73352}"
 export SERVICE_FQDN_COUCHDB_5984="${SERVICE_FQDN_COUCHDB_5984:-livesync.invalid}"
 

@@ -7,7 +7,12 @@ services:
       target: couchdb
     environment:
       - COUCHDB_USER=${COUCHDB_ADMIN_USER:-admin}
-      - COUCHDB_PASSWORD=${SERVICE_PASSWORD_64_COUCHDB_ADMIN}
+      # "COUCHDBADMIN", not "COUCHDB_ADMIN": Coolify only generates a
+      # SERVICE_PASSWORD_* value when the whole variable name has three
+      # underscores or fewer, so an underscore inside the identifier makes it
+      # silently empty — and CouchDB then exits at startup with a banner no
+      # deployment log shows you. Keep every identifier a single word.
+      - COUCHDB_PASSWORD=${SERVICE_PASSWORD_64_COUCHDBADMIN}
       - SERVICE_FQDN_COUCHDB_5984
     volumes:
       - couchdb-data:/opt/couchdb/data
@@ -33,7 +38,7 @@ services:
     environment:
       - COUCHDB_INTERNAL_URL=http://couchdb:5984
       - COUCHDB_ADMIN_USER=${COUCHDB_ADMIN_USER:-admin}
-      - COUCHDB_ADMIN_PASSWORD=${SERVICE_PASSWORD_64_COUCHDB_ADMIN}
+      - COUCHDB_ADMIN_PASSWORD=${SERVICE_PASSWORD_64_COUCHDBADMIN}
       #
       # One vault database per person: alice gets vault-alice, and only alice
       # can reach it. The roster is a Coolify variable, so edit it there.

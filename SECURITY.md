@@ -16,12 +16,12 @@ The CouchDB server administrator account is reserved for provisioning and admini
 
 People are separated by CouchDB access control, not by cryptography. Each person's vault is unreadable to the others, and `scripts/validate.sh` asserts those refusals on every run.
 
-A CouchDB **server** administrator can read any vault whose owner has not enabled end-to-end encryption. If you host vaults for other people, treat that as the trust boundary and tell them: whoever holds `SERVICE_PASSWORD_64_COUCHDB_ADMIN` can read unencrypted vaults.
+A CouchDB **server** administrator can read any vault whose owner has not enabled end-to-end encryption. If you host vaults for other people, treat that as the trust boundary and tell them: whoever holds `SERVICE_PASSWORD_64_COUCHDBADMIN` can read unencrypted vaults.
 
 Self-hosted LiveSync end-to-end encryption is separate from CouchDB authentication and is each person's own choice, set in their own Obsidian client. The server neither sets nor knows the passphrase. Use a strong, unique passphrase and store it outside this repository.
 
 ## Secrets
 
-Never commit Coolify-generated values for `SERVICE_PASSWORD_64_COUCHDB_ADMIN` or for any person's `SERVICE_PASSWORD_64_<NAME>`. They are intentionally generated and stored by Coolify at deployment time.
+Never commit Coolify-generated values for `SERVICE_PASSWORD_64_COUCHDBADMIN` or for any person's `SERVICE_PASSWORD_64_<NAME>`. They are intentionally generated and stored by Coolify at deployment time.
 
 Removing someone from `LIVESYNC_USERS` stops them being provisioned but does not revoke them: their CouchDB account and vault database remain until deleted by hand. Delete the account first if the intent is to cut off access.
