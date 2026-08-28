@@ -8,6 +8,13 @@ name: CI
   pull_request:
   workflow_dispatch:
 
+# One run per ref. Pushing twice to a pull request otherwise leaves two
+# 20-minute Docker builds racing, and only the later one's verdict matters.
+# Nothing here deploys, so cancelling a superseded run loses no work.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
