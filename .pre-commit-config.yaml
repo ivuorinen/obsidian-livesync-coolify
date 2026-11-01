@@ -82,7 +82,7 @@ repos:
   # Coolify's `exclude_from_hc` extension which the upstream Compose schema
   # rejects outright.
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.38.0
+    rev: 0.39.0
     hooks:
       - id: check-github-workflows
       - id: check-github-workflows-require-timeout
